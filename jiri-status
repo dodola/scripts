@@ -1,0 +1,72 @@
+#!/bin/bash
+# Copyright 2017 The Fuchsia Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Prints info about jiri-managed git repos. For each repo:
+#   If the repo has any branches other than "master", runs "git branch"
+#   If the repo has any open files, runs "git status"
+#   Otherwise, prints nothing
+#
+# If this script is on your PATH, you can invoke it as "jiri status".
+#
+# Expects jiri to be on the PATH.
+# Expects FUCHSIA_DIR to be set.
+
+# TODO(dbort): Search for .jiri_root instead of relying on FUCHSIA_DIR.
+# TODO(dbort): Pass this script's args along to "jiri runp", allowing
+#     an override of the currently hard-coded -projects arg.
+# TODO(dbort): Make jiri set an env var when invoking via "runp"
+#     so scripts like this don't need to do it.
+
+set -eu
+set -o pipefail
+
+print_custom_branches() {
+  git branch \
+    | (grep -v 'HEAD detached' || true) \
+    | (grep -vE '\<master\>' || true)
+}
+
+main() {
+  local help_arg_regex=' [-]*help '  # A var makes it easier to handle spaces.
+  if [[ " $@ " =~ ${help_arg_regex} ]]; then
+    echo "Print info about modified projects"
+    exit 0
+  fi
+
+  if [[ -z "${JIRI_STATUS_RUNNING_UNDER_JIRI:-}" ]]; then
+    # The script was invoked directly on the commandline.
+    # Have jiri run us again, against every repo.
+    if ! (which jiri > /dev/null); then
+      echo "ERROR: 'jiri' not found in PATH='${PATH}'" >&2
+      exit 1
+    fi
+
+    export JIRI_STATUS_RUNNING_UNDER_JIRI=1
+    exec jiri runp -projects='.*' "$(readlink -f "$0")"
+    # exec never returns.
+  fi
+
+  # We were invoked by "jiri runp". Our working directory
+  # should be in a git repo.
+  local nbranches nopen
+  nbranches="$(print_custom_branches | wc -l)"
+  nopen="$(git status --porcelain | wc -l)"
+  if [[ ${nbranches} -gt 0 || ${nopen} -gt 0 ]]; then
+    echo "\$FUCHSIA_DIR/${PWD#$FUCHSIA_DIR/}"
+    if [[ ${nbranches} -gt 0 ]]; then
+      echo "  git branch:"
+      #print_custom_branches | sed -e 's/^/    /'
+      git branch | sed -e 's/^/    /'
+      echo ""
+    fi
+    if [[ ${nopen} -gt 0 ]]; then
+      echo "  git status:"
+      git status | sed -e 's/^/    /'
+      echo ""
+    fi
+  fi
+}
+
+main "$@"
