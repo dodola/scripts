@@ -105,23 +105,29 @@ fi
 
 BOOT_PTN_OF=0
 BOOT_PTN_SZ=1024
+BOOT_PTN_SZ_B=$((BOOT_PTN_SZ*1048576))
+BOOT_PTN_S=$((BOOT_PTN_SZ_B/512))
 
 ROOT_PTN_OF=$BOOT_PTN_SZ
 ROOT_PTN_SZ=4096
 ROOT_PTN_SZ_B=$((ROOT_PTN_SZ*1048576))
+ROOT_PTN_S=$((ROOT_PTN_SZ_B/512))
+
 
 DATA_PTN_OF=$((ROOT_PTN_OF + ROOT_PTN_SZ))
 DATA_PTN_SZ=$((BLK_DEV_SIZE_MB - (BOOT_PTN_SZ + ROOT_PTN_SZ)))
 DATA_PTN_SZ_B=$((DATA_PTN_SZ*1048576))
+DATA_PTN_S=$((DATA_PTN_SZ_B/512))
+
 
 echo "Using Boot Partition Size = ${BOOT_PTN_SZ}MB"
 echo "Using Root Partition Size = ${ROOT_PTN_SZ}MB"
 echo "Using Data Partition Size = ${DATA_PTN_SZ}MB"
 
-sudo sfdisk -uM "$DEVICE_PATH" << EOF
-${BOOT_PTN_OF} ${BOOT_PTN_SZ} 0xc *
-${ROOT_PTN_OF} ${ROOT_PTN_SZ} 0xea -
-${DATA_PTN_OF} ${DATA_PTN_SZ} 0xe9 -
+sudo sfdisk -uS "$DEVICE_PATH" << EOF
+, ${BOOT_PTN_S} 0xc *
+, ${ROOT_PTN_S} 0xea -
+, ${DATA_PTN_S} 0xe9 -
 EOF
 
 BOOT_PTN_PATH="${DEVICE_PATH}1"
